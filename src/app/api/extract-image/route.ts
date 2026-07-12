@@ -20,6 +20,7 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.GROQ_API_KEY;
     const model = process.env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+    const OCR_TEMPERATURE = 0.1;
 
     if (!apiKey) {
       console.error("GROQ_API_KEY is not set.");
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
             ]
           }
         ],
-        temperature: 0.1, // low temperature for more deterministic output
+        temperature: OCR_TEMPERATURE, // low temperature for more deterministic output
       }),
     });
 
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     const text = data.choices?.[0]?.message?.content || "";
 
     return NextResponse.json({ text });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Image extraction error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

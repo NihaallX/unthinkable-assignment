@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
     const text = await extractFromPdf(file);
     return NextResponse.json({ text });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("PDF extraction error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
