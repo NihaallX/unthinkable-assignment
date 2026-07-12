@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Document Summary Assistant
 
-## Getting Started
+## Executive Summary
+The Document Summary Assistant is an intelligent web application designed to streamline information extraction. By enabling users to upload PDF documents or image scans, the system instantly generates structured summaries and key takeaways, tailored to the user's preferred length.
 
-First, run the development server:
+## Technology Stack
+- **Frontend Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **PDF Processing**: `pdf-parse` (Server-side Buffer Parsing)
+- **Artificial Intelligence**: Groq API
+  - **Vision/OCR Engine**: `meta-llama/llama-4-scout-17b-16e-instruct`
+  - **Summarization Engine**: `llama-3.3-70b-versatile`
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Architecture & Technical Approach
+To optimize for speed and architectural separation of concerns, the text extraction and summarization workflows were decoupled into discrete backend API routes. 
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For digital PDFs, extraction is handled entirely server-side using the `pdf-parse` library, providing robust, localized processing. Conversely, image-based documents are converted to base64 format and routed to Groq's high-performance `meta-llama/llama-4-scout-17b-16e-instruct` model, which functions as an intelligent OCR engine to accurately transcribe visually embedded text.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Once the raw text is secured, a secondary pipeline engages Groq's `llama-3.3-70b-versatile` model. Groq was strategically selected as the LLM provider over alternatives due to its specialized LPU (Language Processing Unit) architecture. This hardware advantage delivers ultra-low latency inference, which is critical for maintaining an immediate, responsive user experience during complex multi-stage AI operations.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Given the 8-hour development constraint, state management was kept entirely localized within React (`useState`), bypassing heavy global stores like Redux. Furthermore, persistent file storage was eschewed in favor of in-memory buffer processing during the Next.js API lifecycle. This tradeoff removes the overhead of managing cloud buckets (e.g., AWS S3) and orphaned files, though it intentionally limits the application to processing files small enough to fit in memory.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Known Limitations
+- **OCR Constraints**: Extracting text from highly stylized fonts, handwritten notes, or heavily degraded image scans may yield hallucinated or garbled outputs from the vision model.
+- **Context Window Truncation**: To respect the LLM's context window limits and manage token overhead, extracted text exceeding ~12,000 characters is automatically truncated prior to summarization. Summaries for extremely large documents will only reflect the beginning portion of the text.
+- **In-Memory Payloads**: The Next.js API routes impose memory limits on payloads. To ensure server stability, a strict 10MB file size limit is enforced on the client side.
