@@ -13,10 +13,12 @@ export async function POST(request: Request) {
     }
 
     // Truncate to ~12000 characters
+    const MAX_TEXT_LENGTH = 12000;
     let processedText = text;
     let truncatedNote = "";
-    if (text.length > 12000) {
-      processedText = text.substring(0, 12000);
+    const wasTruncated = text.length > MAX_TEXT_LENGTH;
+    if (wasTruncated) {
+      processedText = text.substring(0, MAX_TEXT_LENGTH);
       truncatedNote = "\n\n[NOTE: The document text was truncated due to length limits. Please summarize based on the provided text.]";
     }
 
@@ -26,35 +28,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    let lengthInstruction = "";
-    switch (length.toLowerCase()) {
-      case "short":
-        lengthInstruction = "Make the summary exactly 2-3 sentences.";
-        break;
-      case "medium":
-        lengthInstruction = "Make the summary exactly 1 short paragraph.";
-        break;
-      case "long":
-        lengthInstruction = "Make the summary 3-4 paragraphs.";
-        break;
-    }
+    const systemPrompt = `You are a document analysis assistant. You will be given the extracted text of a document. Your job is to analyze it accurately and return ONLY a valid JSON object — no markdown formatting, no code fences, no commentary before or after.
 
-    const systemPrompt = `You are a professional document summarizer. 
-Your task is to summarize the provided document text. 
-${lengthInstruction}
-Also, extract 3-5 "Key Points" from the text. 
+Base everything strictly on the provided text. Do not invent facts, statistics, names, or details not present in the document. If the document is too short or unclear to summarize meaningfully, say so honestly in the summary field rather than fabricating content.
 
-You MUST respond strictly in the following JSON format:
+Return a JSON object with exactly these fields:
+
 {
-  "summary": "Your generated summary here",
-  "keyPoints": [
-    "Key point 1",
-    "Key point 2",
-    "Key point 3"
-  ]
+  "summary": "string",
+  "keyPoints": ["string"],
+  "improvements": ["string"],
+  "suggestedQuestions": ["string"]
 }
 
-Return ONLY the JSON. Do not include markdown formatting like \`\`\`json or any other commentary.`;
+Field requirements:
+
+- "summary": A summary of the document at ${length.toLowerCase()} length.
+  - short: 2-3 sentences capturing only the core point.
+  - medium: one focused paragraph (roughly 100-150 words).
+  - long: 3-4 paragraphs, covering context, main content, and conclusion, with more detail than medium.
+  Write in clear, neutral, plain language. No filler phrases like "This document discusses..." — get straight to the content.
+
+- "keyPoints": 3-5 bullet points, each one distinct fact or idea from the document, written as a short standalone sentence (not a fragment). Do not repeat the same idea across multiple bullets.
+
+- "improvements": 2-3 concrete, specific suggestions for how the document itself could be improved — e.g. missing context, unclear structure, gaps in explanation, formatting issues. Base these only on what's actually present or missing in the given text. If the document is genuinely clear and complete, say so in one item rather than inventing weak criticism.
+
+- "suggestedQuestions": 2-3 questions a reader would plausibly want answered about THIS specific document, phrased naturally (as a person would type them), directly answerable using the document's content. Do not suggest generic questions unrelated to what's actually in the text.
+
+If the input text was truncated before reaching you, you will be told so — factor that into your summary but do not mention the truncation yourself; that is handled separately by the application.`;
+
+    const SUMMARIZATION_TEMPERATURE = 0.3;
 
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -75,7 +78,7 @@ Return ONLY the JSON. Do not include markdown formatting like \`\`\`json or any 
             content: processedText + truncatedNote
           }
         ],
-        temperature: 0.3,
+        temperature: SUMMARIZATION_TEMPERATURE,
       }),
     });
 
@@ -92,13 +95,16 @@ Return ONLY the JSON. Do not include markdown formatting like \`\`\`json or any 
       const parsed = JSON.parse(content);
       return NextResponse.json({ 
         summary: parsed.summary || "No summary generated.",
-        keyPoints: parsed.keyPoints || []
+        keyPoints: parsed.keyPoints || [],
+        improvements: parsed.improvements || [],
+        suggestedQuestions: parsed.suggestedQuestions || [],
+        truncated: wasTruncated
       });
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.error("Failed to parse JSON from Groq:", content, parseError);
       return NextResponse.json({ error: "Failed to parse summarization response" }, { status: 500 });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Summarization error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
