@@ -50,10 +50,15 @@ The Q&A assistant is strictly constrained to the extracted document text. It is 
 
 ## Approach & Design Notes
 
-- **Architecture**: Built as a single Next.js application utilizing Next.js API routes, eliminating the need for a separate backend service. All text extraction and LLM interactions occur server-side.
-- **LLM Provider**: Groq was chosen for OCR, summarization, and chat due to its fast inference speed, minimizing wait times during multi-step text analysis.
-- **UI Layout**: The results view utilizes a two-zone layout. The summary and chat history share a dynamic, scrollable upper zone, while the chat input form remains persistently pinned to the bottom of the screen.
-- **Known Limitation**: The application relies entirely on React state for data management. Uploaded files, extracted text, and chat history are stored in memory and do not persist across page refreshes.
+I built this as one Next.js app rather than splitting frontend and backend — didn't see the need for that separation at this scope. PDFs get parsed server-side with `pdf-parse`. Images go straight to Groq's vision model for OCR, which turned out cleaner than running Tesseract client-side and cuts out a dependency.
+
+Summarization runs on Groq's `llama-3.3-70b-versatile` and returns strict JSON — summary, key points, improvement suggestions, and a couple of suggested questions, all from one call instead of four. Partly a design choice, partly to stay comfortable within Groq's free-tier limits.
+
+Honestly the chat is where most of the time went. After summarizing, you can keep asking questions about the document and get answers grounded in the actual extracted text, with short quoted excerpts as citations. I cared more about it saying "not in this document" when it doesn't know, than about always having an answer ready.
+
+Layout took a few passes too — chat input stays pinned at the bottom while everything else scrolls, closer to how Claude or ChatGPT do it. Beats burying the chat under a wall of summary text.
+
+One thing I left out: no persistence. Refresh and you're starting over.
 
 ---
 Built for the Unthinkable Solutions technical assessment.
