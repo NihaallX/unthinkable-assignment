@@ -1,3 +1,7 @@
+# Document Summary Assistant
+
+[![Vercel Deployment](https://img.shields.io/badge/Live_Demo-Vercel-000000?style=for-the-badge&logo=vercel)](https://unthinkable-assignment-eta.vercel.app/)
+
 ![Next.js](https://img.shields.io/badge/Next.js-black?style=flat&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
